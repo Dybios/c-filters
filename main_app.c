@@ -16,7 +16,7 @@ int main(int argc, char** argv) {
     FILE* output;
     input = fopen(argv[1], "rb");
     output = fopen(argv[2], "wb");
-    float alpha = atof(argv[3]) / 48000; // Assume default sample rate: 48k (TODO: make it dynamic)
+    float alpha = atof(argv[3]) / 44100; // Set default sample rate for chip demo wav file: 44.1k (TODO: make it dynamic)
     printf("Cutoff Frequency = %f\n", alpha);
 
     void *context;
