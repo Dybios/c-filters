@@ -1,5 +1,7 @@
-// Using following header to run LPF demo
+// Using following header to run LPF demo.
+// Uncomment whichever demo you wish to run using main_app.
 #include "iir/lpf/lpf.h"
+//#include "iir/hpf/hpf.h"
 
 int main(int argc, char** argv) {
 
