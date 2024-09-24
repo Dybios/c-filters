@@ -38,29 +38,27 @@ int32_t process_sample(void* context, int16_t *input_buffer, int16_t *output_buf
     memset(lpf, 0, sizeof(lpf_t));
 
     if (ct->cutoff_freq != 0) {
-    // Calculate decay calue
-    lpf->decay = exp(-2 * M_PI * ct->cutoff_freq);
+        // Calculate decay calue
+        lpf->decay = exp(-2 * M_PI * ct->cutoff_freq);
 
-    // Derive a and b value
-    lpf->a = lpf->decay;
-    lpf->b = 1 - lpf->a;
+        // Derive a and b value
+        lpf->a = lpf->decay;
+        lpf->b = 1 - lpf->a;
 
-    for (unsigned int i = 0; i < FRAME_LEN; ++i)
-    {
-        // Convert to float
-        in[i] = (float)((input_buffer[i]) * ONEOVERSHORTMAX);
+        // First Order: Initialize the first value
+        output_buffer[0] = input_buffer[0];
 
-        // Run the filter over the frame length
-        if (i == 0) {
-            // If first iteration, update the first value
-            out[i] += lpf->b * (in[i] - out[i]);
-        } else {
+        for (unsigned int i = 1; i < FRAME_LEN; ++i)
+        {
+            // Convert to float
+            in[i] = (float)((input_buffer[i]) * ONEOVERSHORTMAX);
+
+            // Run the filter over the frame length
             // Use previous value to update the new value
             out[i] = out[i - 1] + (lpf->b * (in[i] - out[i - 1]));
-        }
 
-        output_buffer[i] = (short)(out[i] * 32767);
-    }
+            output_buffer[i] = (short)(out[i] * 32767);
+        }
     } else {
         for (unsigned int i = 0; i < FRAME_LEN; ++i) {
              output_buffer[i] = input_buffer[i];
