@@ -61,11 +61,14 @@ int main(int argc, char** argv) {
     fwrite(out_header, 44, 1, output);
 
     int32_t ret = 0;
-    int16_t in[FRAME_LEN];
-    int16_t out[FRAME_LEN];
     int32_t frame_count = 0;
     int32_t getVal = 0;
     int32_t getMemorySize = 0;
+
+    int16_t in[FRAME_LEN];
+    int16_t out[FRAME_LEN];
+    int16_t prev_frame_in = 0;
+    int16_t prev_frame_out = 0;
 
     getMemorySize = get_mem_size();
     context = (void*) malloc(getMemorySize);
@@ -87,7 +90,11 @@ int main(int argc, char** argv) {
            break;
         }
 
-        process_sample(context, in, out, frame_count);
+        process_sample(context, in, out, prev_frame_in, prev_frame_out, frame_count);
+
+        // Store the previous frame in-out value states
+        prev_frame_in = in[FRAME_LEN - 1];
+        prev_frame_out = out[FRAME_LEN - 1];
 
         fseek(output, 0, SEEK_END); // Always append out value to end of file
         fwrite(out, sizeof(short), FRAME_LEN, output);

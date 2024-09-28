@@ -27,7 +27,9 @@ void init(void* context) {
     printf("Init Success \n");
 }
 
-int32_t process_sample(void* context, int16_t *input_buffer, int16_t *output_buffer, int32_t frame_count) {
+int32_t process_sample(void* context, int16_t *input_buffer, int16_t *output_buffer,
+                            int16_t prev_frame_in, int16_t prev_frame_out, int32_t frame_count) {
+
     context_t *ct = (context_t*) context;
 
     float in[FRAME_LEN];
@@ -45,6 +47,7 @@ int32_t process_sample(void* context, int16_t *input_buffer, int16_t *output_buf
         lpf->a = lpf->decay;
         lpf->b = 1 - lpf->a;
 
+        // Use the prev state values for the processing correctly
         in[0] = (float)((input_buffer[0]) * ONEOVERSHORTMAX);
         if (frame_count == 0) {
             // If first frame, initialize to first input value.
@@ -52,8 +55,9 @@ int32_t process_sample(void* context, int16_t *input_buffer, int16_t *output_buf
             out[0] = (float)((output_buffer[0]) * ONEOVERSHORTMAX);
         } else {
             // If not, set the first output value to the last processed value of the previous frame.
-            float prev_out = (float)((output_buffer[FRAME_LEN-1]) * ONEOVERSHORTMAX);
-            out[0] = prev_out + (lpf->b * (in[0] - prev_out));
+            float f_prev_frame_out = (float)(prev_frame_out * ONEOVERSHORTMAX);
+            float f_prev_frame_in = (float)(prev_frame_in * ONEOVERSHORTMAX);
+            out[0] = f_prev_frame_out + (lpf->b * (in[0] - f_prev_frame_out));
             output_buffer[0] = (short)(out[0] * 32767);
         }
 
