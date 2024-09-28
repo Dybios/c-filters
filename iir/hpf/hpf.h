@@ -22,7 +22,7 @@ int32_t get_mem_size(void);
 
 void init(void* context);
 
-int32_t process_sample(void* context, int16_t *input_buffer, int16_t *output_buffer);
+int32_t process_sample(void* context, int16_t *input_buffer, int16_t *output_buffer, int32_t frame_count);
 
 int32_t set_param(void* context, float value);
 

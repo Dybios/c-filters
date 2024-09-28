@@ -53,10 +53,17 @@ int main(int argc, char** argv) {
            return 1;
     }
 
+    // copy the wav header to output file
+    short out_header[44];
+    fseek(input, 0, SEEK_SET);
+    fread(out_header, 44, 1, input);
+    fseek(output, 0, SEEK_SET);
+    fwrite(out_header, 44, 1, output);
+
     int32_t ret = 0;
     int16_t in[FRAME_LEN];
     int16_t out[FRAME_LEN];
-    int32_t count = 0;
+    int32_t frame_count = 0;
     int32_t getVal = 0;
     int32_t getMemorySize = 0;
 
@@ -73,18 +80,18 @@ int main(int argc, char** argv) {
     set_param(context, freq_l, freq_h);
 #endif
 
-    while ( (ret =fread(in, sizeof(short), FRAME_LEN, input)) >= 1) {
+    while ((ret = fread(in, sizeof(short), FRAME_LEN, input)) >= 1) {
 
         if (ret < 1) {
            printf("Error in control input\n");
            break;
         }
 
-        process_sample(context, in, out);
+        process_sample(context, in, out, frame_count);
 
         fseek(output, 0, SEEK_END); // Always append out value to end of file
         fwrite(out, sizeof(short), FRAME_LEN, output);
-        count++;
+        frame_count++;
 
         getVal = get_param(context);
     }

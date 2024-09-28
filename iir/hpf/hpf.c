@@ -27,7 +27,7 @@ void init(void* context) {
     printf("Init Success \n");
 }
 
-int32_t process_sample(void* context, int16_t *input_buffer, int16_t *output_buffer) {
+int32_t process_sample(void* context, int16_t *input_buffer, int16_t *output_buffer, int32_t frame_count) {
     context_t *ct = (context_t*) context;
 
     float in[FRAME_LEN];
@@ -44,8 +44,14 @@ int32_t process_sample(void* context, int16_t *input_buffer, int16_t *output_buf
         // Derive a value
         hpf->a = hpf->decay;
 
-        // First Order: Initialize the first value
-        output_buffer[0] = input_buffer[0];
+        if (frame_count == 0) {
+            // If first frame, initialize to first input value.
+            output_buffer[0] = input_buffer[0];
+        } else {
+            // If not, set the first value to the last processed value of the previous frame.
+            output_buffer[0] = output_buffer[FRAME_LEN - 1];
+        }
+        out[0] = (float)((output_buffer[0]) * ONEOVERSHORTMAX);
 
         for (unsigned int i = 1; i < FRAME_LEN; ++i)
         {
