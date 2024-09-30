@@ -13,4 +13,4 @@ NOTE: This is only an initial proof of concept. Following characteristics still 
 
 * Rolloff is not very steep.
 
-* Glitches seen between frames.
+* ~Glitches seen between frames.~
