@@ -90,11 +90,7 @@ int main(int argc, char** argv) {
            break;
         }
 
-        process_sample(context, in, out, prev_frame_in, prev_frame_out, frame_count);
-
-        // Store the previous frame in-out value states
-        prev_frame_in = in[FRAME_LEN - 1];
-        prev_frame_out = out[FRAME_LEN - 1];
+        process_sample(context, in, out, frame_count);
 
         fseek(output, 0, SEEK_END); // Always append out value to end of file
         fwrite(out, sizeof(short), FRAME_LEN, output);
