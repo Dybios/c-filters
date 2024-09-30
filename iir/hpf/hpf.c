@@ -55,7 +55,7 @@ int32_t process_sample(void* context, int16_t *input_buffer, int16_t *output_buf
             // If not, set the first output value to the last processed value of the previous frame.
             float f_prev_frame_out = (float)(prev_frame_out * ONEOVERSHORTMAX);
             float f_prev_frame_in = (float)(prev_frame_in * ONEOVERSHORTMAX);
-            out[0] = hpf->a * (f_prev_frame_out * (in[0] - f_prev_frame_in));
+            out[0] = hpf->a * (f_prev_frame_out + (in[0] - f_prev_frame_in));
             output_buffer[0] = (short)(out[0] * 32767);
         }
 
