@@ -3,7 +3,11 @@
 const float ONEOVERSHORTMAX = 3.0517578125e-5f; // 1/32768
 
 int32_t get_mem_size(void) {
-    return (sizeof(float) + (2 * FRAME_LEN * sizeof(short)));
+    int32_t mem_size = 0;
+    mem_size += 2 * sizeof(float); // fl and fh
+    mem_size += 3 * sizeof(short); // prev values
+    mem_size += (2 * FRAME_LEN * sizeof(short)); // inbuf and outbuf
+    return mem_size;
 }
 
 void init(void* context) {
@@ -13,7 +17,10 @@ void init(void* context) {
     context_t* ct = (context_t*) context;
     memset(ct, 0, sizeof(context_t));
 
-    context += sizeof(float);
+    // Move pointer to start of buffers
+    context += 2 * sizeof(float);
+    context += 3 * sizeof(short);
+
     ct->input_buffer = (short*)context;
     memset(ct->input_buffer, 0, FRAME_LEN*sizeof(short));
 
@@ -21,9 +28,12 @@ void init(void* context) {
     ct->output_buffer = (short*) context;
     memset(ct->output_buffer, 0, FRAME_LEN*sizeof(short));
 
-    /* Set default cutoff value to 0 */
+    /* Set default values to 0 */
     ct->freq_l = 0;
     ct->freq_h = 0;
+    ct->prev_frame_in = 0;
+    ct->prev_frame_out_lpf = 0;
+    ct->prev_frame_out_hpf = 0;
 
     printf("Init Success \n");
 }
@@ -32,9 +42,10 @@ int32_t process_sample(void* context, int16_t *input_buffer, int16_t *output_buf
     context_t *ct = (context_t*) context;
 
     float in[FRAME_LEN];
-    float out_hpf[FRAME_LEN];
     float out_lpf[FRAME_LEN];
-    float out[FRAME_LEN];
+    float out_hpf[FRAME_LEN];
+    short short_out_hpf[FRAME_LEN];
+    short short_out_lpf[FRAME_LEN];
 
     // Create an HPF instance
     hpf_t *hpf = (hpf_t *) malloc(sizeof(hpf_t));
@@ -54,14 +65,23 @@ int32_t process_sample(void* context, int16_t *input_buffer, int16_t *output_buf
         lpf->a = lpf->decay;
         lpf->b = 1 - lpf->a;
 
+        // Use the prev state values for the processing correctly
+        in[0] = (float)((input_buffer[0]) * ONEOVERSHORTMAX);
         if (frame_count == 0) {
             // If first frame, initialize to first input value.
             output_buffer[0] = input_buffer[0];
+            out_hpf[0] = (float)((output_buffer[0]) * ONEOVERSHORTMAX);
+            out_lpf[0] = out_hpf[0];
         } else {
             // If not, set the first value to the last processed value of the previous frame.
-            output_buffer[0] = output_buffer[FRAME_LEN - 1];
+            float f_prev_frame_out_lpf = (float)(ct->prev_frame_out_lpf * ONEOVERSHORTMAX);
+            float f_prev_frame_out_hpf = (float)(ct->prev_frame_out_hpf * ONEOVERSHORTMAX);
+            float f_prev_frame_in = (float)(ct->prev_frame_in * ONEOVERSHORTMAX);
+            out_hpf[0] = hpf->a * (f_prev_frame_out_hpf + (in[0] - f_prev_frame_in));
+            out_lpf[0] = f_prev_frame_out_lpf + (lpf->b * (in[0] - f_prev_frame_out_lpf));
+            output_buffer[0] = ((short)(out_hpf[0] * 32767))
+                                + ((short)(out_lpf[0] * 32767));
         }
-        out[0] = (float)((output_buffer[0]) * ONEOVERSHORTMAX);
 
         for (unsigned int i = 1; i < FRAME_LEN; ++i)
         {
@@ -71,14 +91,14 @@ int32_t process_sample(void* context, int16_t *input_buffer, int16_t *output_buf
             // Run the HPF filter over the frame length
             // Use previous value to update the new value
             out_hpf[i] = hpf->a * (out_hpf[i - 1] + (in[i] - in[i - 1]));
+            short_out_hpf[i] = (short)(out_hpf[i] * 32767);
 
             // Run the LPF filter over the frame length
             out_lpf[i] = out_lpf[i - 1] + (lpf->b * (in[i] - out_lpf[i - 1]));
+            short_out_lpf[i] = (short)(out_lpf[i] * 32767);
 
             // Sum the two outputs to give the required band stop
-            out[i] = out_hpf[i] + out_lpf[i];
-
-            output_buffer[i] = (short)(out[i] * 32767);
+            output_buffer[i] = short_out_hpf[i] + short_out_lpf[i];
         }
     } else {
         for (unsigned int i = 0; i < FRAME_LEN; ++i) {
@@ -86,7 +106,13 @@ int32_t process_sample(void* context, int16_t *input_buffer, int16_t *output_buf
         }
     }
 
+    // Store the previous frame in-out value stats in context
+    ct->prev_frame_in = input_buffer[FRAME_LEN - 1];
+    ct->prev_frame_out_lpf = short_out_lpf[FRAME_LEN - 1];
+    ct->prev_frame_out_hpf = short_out_hpf[FRAME_LEN - 1];
+
     // Free the instance
+    free(lpf);
     free(hpf);
 }
 
