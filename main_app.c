@@ -7,6 +7,8 @@
   #include "iir/hpf/hpf.h"
 #elif defined(BSF)
   #include "iir/bsf/bsf.h"
+#elif defined(BPF)
+  #include "iir/bpf/bpf.h"
 #endif
 
 int main(int argc, char** argv) {
@@ -33,7 +35,7 @@ int main(int argc, char** argv) {
     FILE* output;
     input = fopen(argv[1], "rb");
     output = fopen(argv[2], "wb");
-#ifndef BSF
+#if (!defined(BSF) && !defined(BPF))
     float freq = atof(argv[3]) / 44100; // Set default sample rate for chip demo wav file: 44.1k (TODO: make it dynamic)
     printf("Cutoff Frequency = %f\n", freq);
 #else
@@ -77,7 +79,7 @@ int main(int argc, char** argv) {
     init(context);
 
     printf("Set param\n");
-#ifndef BSF
+#if (!defined(BSF) && !defined(BPF))
     set_param(context, freq);
 #else
     set_param(context, freq_l, freq_h);
