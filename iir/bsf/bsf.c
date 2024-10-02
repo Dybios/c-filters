@@ -10,6 +10,17 @@ int32_t get_mem_size(void) {
     return mem_size;
 }
 
+static void generate_coeffs(lpf_t *lpf, hpf_t *hpf, float freq_low, float freq_high) {
+    // Calculate LPF and HPF decay values
+    hpf->decay = 1 / ((2 * M_PI * freq_high) + 1);
+    lpf->decay = exp(-2 * M_PI * freq_low);
+
+    // Derive HPF and LPF coeffs
+    hpf->a = hpf->decay;
+    lpf->a = lpf->decay;
+    lpf->b = 1 - lpf->a;
+}
+
 void init(void* context) {
     /* Initialize context to 0*/
     printf("Init Function\n");
@@ -56,14 +67,8 @@ int32_t process_sample(void* context, int16_t *input_buffer, int16_t *output_buf
     memset(lpf, 0, sizeof(lpf_t));
 
     if (ct->freq_l != 0 || ct->freq_h != 0) {
-        // Calculate LPF and HPF decay values
-        hpf->decay = 1 / ((2 * M_PI * ct->freq_h) + 1);
-        lpf->decay = exp(-2 * M_PI * ct->freq_l);
-
-        // Derive HPF and LPF coeffs
-        hpf->a = hpf->decay;
-        lpf->a = lpf->decay;
-        lpf->b = 1 - lpf->a;
+        // Generate the coeffs for the filters based on freq
+        generate_coeffs(lpf, hpf, ct->freq_l, ct->freq_h);
 
         // Use the prev state values for the processing correctly
         in[0] = (float)((input_buffer[0]) * ONEOVERSHORTMAX);

@@ -10,6 +10,11 @@ int32_t get_mem_size(void) {
     return mem_size;
 }
 
+static void generate_coeffs(hpf_t *hpf, float cutoff_freq) {
+    // Calculate a (decay) value
+    hpf->a = 1 / ((2 * M_PI * cutoff_freq) + 1);
+}
+
 void init(void* context) {
     /* Initialize context to 0*/
     printf("Init Function\n");
@@ -47,11 +52,8 @@ int32_t process_sample(void* context, int16_t *input_buffer, int16_t *output_buf
     memset(hpf, 0, sizeof(hpf_t));
 
     if (ct->cutoff_freq != 0) {
-        // Calculate decay value (HPF)
-        hpf->decay = 1 / ((2 * M_PI * ct->cutoff_freq) + 1);
-
-        // Derive a value
-        hpf->a = hpf->decay;
+        // Generate the coeffs for the filter based on freq
+        generate_coeffs(hpf, ct->cutoff_freq);
 
         // Use the prev state values for the processing correctly
         in[0] = (float)((input_buffer[0]) * ONEOVERSHORTMAX);
