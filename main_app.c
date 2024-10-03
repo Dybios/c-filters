@@ -36,7 +36,7 @@ int main(int argc, char** argv) {
     input = fopen(argv[1], "rb");
     output = fopen(argv[2], "wb");
 #if (!defined(BSF) && !defined(BPF))
-    float freq = atof(argv[3]) / 44100; // Set default sample rate for chip demo wav file: 44.1k (TODO: make it dynamic)
+    float freq = atof(argv[3]); // Set default sample rate for chip demo wav file: 44.1k (TODO: make it dynamic)
     printf("Cutoff Frequency = %f\n", freq);
 #else
     float freq_l = atof(argv[3]) / 44100;
