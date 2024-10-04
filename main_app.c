@@ -16,14 +16,14 @@ int main(int argc, char** argv) {
     printf("****** Thank you for using this application ******** \n");
 
 #if (!defined(BSF) && !defined(BPF))
-    if (argc < 3)
+    if (argc < 4)
     {
         printf("Enter command as below: \n");
         printf("<exe> <input_file> <output_file> <cutoff_frequency (in Hz)>\n");
         return 0;
     }
 #else
-    if (argc < 3)
+    if (argc < 4)
     {
         printf("Enter command as below: \n");
         printf("<exe> <input_file> <output_file> <low_cutoff_frequency (in Hz)> <high_cutoff_frequency (in Hz)>\n");
