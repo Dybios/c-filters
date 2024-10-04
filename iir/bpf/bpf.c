@@ -81,7 +81,7 @@ int32_t process_sample(void* context, int16_t *input_buffer, int16_t *output_buf
     short short_out_lpf[FRAME_LEN];
 
     // Create an HPF instance
-    lpf_t *lpf = (hpf_t *) malloc(sizeof(lpf_t));
+    lpf_t *lpf = (lpf_t *) malloc(sizeof(lpf_t));
     memset(lpf, 0, sizeof(lpf_t));
 
     // Create an HPF instance

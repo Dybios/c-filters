@@ -15,7 +15,7 @@ int main(int argc, char** argv) {
 
     printf("****** Thank you for using this application ******** \n");
 
-#ifndef BSF
+#if (!defined(BSF) && !defined(BPF))
     if (argc < 3)
     {
         printf("Enter command as below: \n");
@@ -23,10 +23,11 @@ int main(int argc, char** argv) {
         return 0;
     }
 #else
-    if (argc < 4)
+    if (argc < 3)
     {
         printf("Enter command as below: \n");
         printf("<exe> <input_file> <output_file> <low_cutoff_frequency (in Hz)> <high_cutoff_frequency (in Hz)>\n");
+        printf("\n OR (if trying to notch up/down) \n\n <exe> <input_file> <output_file> <notch up/down_frequency (in Hz)>\n");
         return 0;
     }
 #endif
@@ -39,10 +40,12 @@ int main(int argc, char** argv) {
     float freq = atof(argv[3]); // Set default sample rate for chip demo wav file: 44.1k (TODO: make it dynamic)
     printf("Cutoff Frequency = %f\n", freq);
 #else
-    float freq_l = atof(argv[3]);
-    float freq_h = atof(argv[4]);
-    if (freq_h == freq_l) {
-        printf("NOTE: Notch filter is currently not implemented. No effect will be applied. Please increase the BW of cutoff freqs.\n");
+    float freq_l, freq_h;
+    freq_l = atof(argv[3]);
+    if (argv[4] != NULL) {
+        freq_h = atof(argv[4]);
+    } else {
+        freq_h = freq_l;
     }
     printf("Low Cutoff = %f\n", freq_l);
     printf("High Cutoff = %f\n", freq_h);
