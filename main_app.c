@@ -39,8 +39,8 @@ int main(int argc, char** argv) {
     float freq = atof(argv[3]); // Set default sample rate for chip demo wav file: 44.1k (TODO: make it dynamic)
     printf("Cutoff Frequency = %f\n", freq);
 #else
-    float freq_l = atof(argv[3]) / 44100;
-    float freq_h = atof(argv[4]) / 44100;
+    float freq_l = atof(argv[3]);
+    float freq_h = atof(argv[4]);
     if (freq_h == freq_l) {
         printf("NOTE: Notch filter is currently not implemented. No effect will be applied. Please increase the BW of cutoff freqs.\n");
     }

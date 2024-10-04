@@ -10,22 +10,21 @@
 typedef struct context_t {
     float freq_l; // Low cutoff
     float freq_h; // High cutoff
-    short prev_frame_in;
-    short prev_frame_out_lpf;
-    short prev_frame_out_hpf;
+    short prev_frame_in[2];
+    short prev_frame_out_lpf[2];
+    short prev_frame_out_hpf[2];
     short *input_buffer;
     short *output_buffer;
 } context_t;
 
 typedef struct hpf_t {
-    float decay;
-    float a;
+   float a0, a1, a2;
+   float b0, b1, b2;
 } hpf_t;
 
 typedef struct lpf_t {
-    float decay;
-    float a;
-    float b;
+   float a0, a1, a2;
+   float b0, b1, b2;
 } lpf_t;
 
 int32_t get_mem_size(void);
