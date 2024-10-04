@@ -7,36 +7,16 @@
 
 #define FRAME_LEN 1024 // Buffer size assumed
 
-typedef struct context_t {
-    float freq_l; // Low cutoff
-    float freq_h; // High cutoff
-    short prev_frame_in[2];
-    short prev_frame_out_lpf[2];
-    short prev_frame_out_hpf[2];
-    short *input_buffer;
-    short *output_buffer;
-} context_t;
+int32_t get_bpf_mem_size(void);
 
-typedef struct hpf_t {
-   float a0, a1, a2;
-   float b0, b1, b2;
-} hpf_t;
+void init_bpf(void* context);
 
-typedef struct lpf_t {
-   float a0, a1, a2;
-   float b0, b1, b2;
-} lpf_t;
+int32_t process_bpf(void* context, int16_t *input_buffer, int16_t *output_buffer, int32_t frame_count);
 
-int32_t get_mem_size(void);
+int32_t set_bpf_param(void* context, float value1, float value2);
 
-void init(void* context);
+int32_t get_bpf_param(void* context);
 
-int32_t process_sample(void* context, int16_t *input_buffer, int16_t *output_buffer, int32_t frame_count);
-
-int32_t set_param(void* context, float value1, float value2);
-
-int32_t get_param(void* context);
-
-void deinit(void* context);
+void deinit_bpf(void* context);
 
 #endif /* _BPF_H */

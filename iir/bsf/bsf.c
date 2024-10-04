@@ -1,8 +1,29 @@
 #include "bsf.h"
+#include <string.h>
 
-const float ONEOVERSHORTMAX = 3.0517578125e-5f; // 1/32768
+#define ONEOVERSHORTMAX 3.0517578125e-5f // 1/32768
 
-int32_t get_mem_size(void) {
+typedef struct context_t {
+    float freq_l; // Low cutoff
+    float freq_h; // High cutoff
+    short prev_frame_in[2];
+    short prev_frame_out_lpf[2];
+    short prev_frame_out_hpf[2];
+    short *input_buffer;
+    short *output_buffer;
+} context_t;
+
+typedef struct hpf_t {
+   float a0, a1, a2;
+   float b0, b1, b2;
+} hpf_t;
+
+typedef struct lpf_t {
+   float a0, a1, a2;
+   float b0, b1, b2;
+} lpf_t;
+
+int32_t get_bsf_mem_size(void) {
     int32_t mem_size = 0;
     mem_size += 2 * sizeof(float); // fl and fh
     mem_size += 3 * (2 * sizeof(short)); // prev values
@@ -46,7 +67,7 @@ static void generate_coeffs(lpf_t *lpf, hpf_t *hpf, float freq_l, float freq_h) 
     hpf->a2 = (pow(wc, 2) + pow(k, 2) - (sqrt(2) * wc * k)) / (pow(wc, 2) + pow(k, 2) + (sqrt(2) * wc * k));
 }
 
-void init(void* context) {
+void init_bsf(void* context) {
     /* Initialize context to 0*/
     printf("Init Function\n");
 
@@ -71,7 +92,7 @@ void init(void* context) {
     printf("Init Success \n");
 }
 
-int32_t process_sample(void* context, int16_t *input_buffer, int16_t *output_buffer, int32_t frame_count) {
+int32_t process_bsf(void* context, int16_t *input_buffer, int16_t *output_buffer, int32_t frame_count) {
     context_t *ct = (context_t*) context;
 
     float in[FRAME_LEN];
@@ -165,7 +186,7 @@ int32_t process_sample(void* context, int16_t *input_buffer, int16_t *output_buf
     free(hpf);
 }
 
-int32_t set_param(void* context, float value1, float value2) {
+int32_t set_bsf_param(void* context, float value1, float value2) {
     context_t* ct = (context_t*) context;
 
     /* Set cutoff frequency */
@@ -180,7 +201,7 @@ int32_t set_param(void* context, float value1, float value2) {
     }
 }
 
-int32_t get_param(void* context) {
+int32_t get_bsf_param(void* context) {
     context_t* ct = (context_t*) context;
 
     /* Retrieves the value of the parameter "alpha" from the context. */
@@ -188,7 +209,7 @@ int32_t get_param(void* context) {
     return ct->freq_l;
 }
 
-void deinit(void* context) {
+void deinit_bsf(void* context) {
     context_t* ct = (context_t*) context;
     memset(ct, 0, sizeof(context_t));
 }
