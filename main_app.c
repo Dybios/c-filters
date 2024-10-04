@@ -9,14 +9,15 @@ const float ONEOVERSHORTMAX = 3.0517578125e-5f; // 1/32768
 
 int main(int argc, char** argv) {
 
-    printf("****** Thank you for using this application ******** \n");
+    printf("****** Thank you for using this application ******** \n\n\n");
 
     if (argc < 5)
     {
-        printf("Enter command as below: \n");
+        printf("Enter command in either of the following formats with appropriate filter type.\n");
+        printf("NOTE: Filter types available --> 1 = Lowpass, 2 = Highpass, 3 = Bandpass, 4 = Bandstop\n\n");
         printf("<exe> <input_file> <output_file> <filter_type> <cutoff_frequency (in Hz)>\n");
-        printf("\n OR <exe> <input_file> <output_file> <filter_type> <low_cutoff_frequency (in Hz)> <high_cutoff_frequency (in Hz)>\n");
-        printf("\n OR (if trying to notch up/down) \n\n <exe> <input_file> <output_file> <filter_type> <notch up/down_frequency (in Hz)>\n");
+        printf("\nOR, if using band pass/stop filters\n\n<exe> <input_file> <output_file> <filter_type> <low_cutoff_frequency (in Hz)> <high_cutoff_frequency (in Hz)>\n");
+        printf("\nOR, if using band pass/stop notched filters\n\n<exe> <input_file> <output_file> <filter_type> <notch_frequency (in Hz)>\n\n");
         return 0;
     }
 
