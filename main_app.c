@@ -4,6 +4,7 @@
 #include "iir/hpf/hpf.h"
 #include "iir/bsf/bsf.h"
 #include "iir/bpf/bpf.h"
+#include "kalman/kalman.h"
 
 const float ONEOVERSHORTMAX = 3.0517578125e-5f; // 1/32768
 
@@ -14,25 +15,43 @@ int main(int argc, char** argv) {
     if (argc < 5)
     {
         printf("Enter command in either of the following formats with appropriate filter type.\n");
-        printf("NOTE: Filter types available --> 1 = Lowpass, 2 = Highpass, 3 = Bandpass, 4 = Bandstop\n\n");
-        printf("<exe> <input_file> <output_file> <filter_type> <cutoff_frequency (in Hz)>\n");
-        printf("\nOR, if using band pass/stop filters\n\n<exe> <input_file> <output_file> <filter_type> <low_cutoff_frequency (in Hz)> <high_cutoff_frequency (in Hz)>\n");
-        printf("\nOR, if using band pass/stop notched filters\n\n<exe> <input_file> <output_file> <filter_type> <notch_frequency (in Hz)>\n\n");
+        printf("NOTE: Filter types available --> 1 = Lowpass, 2 = Highpass, 3 = Bandpass, 4 = Bandstop, 5 = Kalman\n\n");
+        printf("<exe> <filter_type> <input_file> <output_file> <cutoff_frequency (in Hz)>\n");
+        printf("\nOR, if using band pass/stop filters\n\n<exe> <filter_type> <input_file> <output_file> <low_cutoff_frequency (in Hz)> <high_cutoff_frequency (in Hz)>\n");
+        printf("\nOR, if using band pass/stop notched filters\n\n<exe> <filter_type> <input_file> <output_file> <notch_frequency (in Hz)>\n\n");
+        printf("\nOR, if using kalman filter \n\n<exe> <filter_type> <input_file1> <input_file2> <output_file> <Q (between 0-1; default 0.005)>\n\n");
         return 0;
     }
 
-    FILE* input = fopen(argv[1], "rb");
-    FILE* output = fopen(argv[2], "wb");
-    int filter_type = atoi(argv[3]); // Filter type: 1 = LPF, 2 = HPF, 3 = BPF, 4 = BSF
-    float freq_l, freq_h;
-    freq_l = atof(argv[4]);
-    if (argv[5] != NULL) {
-        freq_h = atof(argv[5]);
-        printf("Low Cutoff = %f\n", freq_l);
-        printf("High Cutoff = %f\n", freq_h);
+    int filter_type = atoi(argv[1]); // Filter type: 1 = LPF, 2 = HPF, 3 = BPF, 4 = BSF, 5 = KF
+    float freq_l, freq_h, Q;
+    FILE* input = fopen(argv[2], "rb");
+    FILE* input2, *output;
+    if (filter_type != 5) {
+        output = fopen(argv[3], "wb");
+
+        freq_l = atof(argv[4]);
+        if (argv[5] != NULL) {
+            freq_h = atof(argv[5]);
+            printf("Low Cutoff = %f\n", freq_l);
+            printf("High Cutoff = %f\n", freq_h);
+        } else {
+            freq_h = freq_l;
+            printf("Cutoff Frequency = %f\n", freq_l);
+        }
     } else {
-        freq_h = freq_l;
-        printf("Cutoff Frequency = %f\n", freq_l);
+        // This is kalman filter
+        input2 = fopen(argv[3], "rb");
+        output = fopen(argv[4], "wb");
+        if (argv[5] != NULL) {
+            Q = atof(argv[5]);
+        } else {
+            Q = 0.001;
+        }
+        if (input2 == NULL) {
+            printf("Cannot open control file.\n");
+            return 1;
+        }
     }
 
     if (input == NULL || output == NULL) {
@@ -52,6 +71,7 @@ int main(int argc, char** argv) {
     int32_t getVal = 0;
 
     int16_t in[FRAME_LEN];
+    int16_t in2[FRAME_LEN];
     int16_t out[FRAME_LEN];
 
     // Initialize all context's memory for demo application
@@ -59,10 +79,12 @@ int main(int argc, char** argv) {
     int32_t get_hpf_memory_size = get_hpf_mem_size();
     int32_t get_bpf_memory_size = get_bpf_mem_size();
     int32_t get_bsf_memory_size = get_bsf_mem_size();
+    int32_t get_kalman_memory_size = get_kalman_mem_size();
     void *lpf_context = (void*) malloc(get_lpf_memory_size);
     void *hpf_context = (void*) malloc(get_hpf_memory_size);
     void *bpf_context = (void*) malloc(get_bpf_memory_size);
     void *bsf_context = (void*) malloc(get_bsf_memory_size);
+    void *kalman_context = (void*) malloc(get_kalman_memory_size);
 
     // Process filter based on the input filter type
     switch (filter_type) {
@@ -138,6 +160,27 @@ int main(int argc, char** argv) {
             }
             // BSF
             process_bsf(bsf_context, in, out, frame_count);
+            fseek(output, 0, SEEK_END); // Always append out value to end of file
+            fwrite(out, sizeof(short), FRAME_LEN, output);
+            frame_count++;
+        }
+        break;
+    case 5:
+        printf("Init kalman param\n");
+        init_kalman(kalman_context);
+
+        printf("Set kalman param\n");
+        set_kalman_param(kalman_context, Q);
+
+        while ((ret = fread(in, sizeof(short), FRAME_LEN, input)) >= 1
+                && (ret = fread(in2, sizeof(short), FRAME_LEN, input2)) >= 1) {
+
+            if (ret < 1) {
+                printf("Error in control input\n");
+                break;
+            }
+            // KF
+            process_kalman(kalman_context, in, in2, out, frame_count);
             fseek(output, 0, SEEK_END); // Always append out value to end of file
             fwrite(out, sizeof(short), FRAME_LEN, output);
             frame_count++;
