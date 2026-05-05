@@ -7,21 +7,15 @@ typedef struct context_t {
     float freq_l; // Low cutoff
     float freq_h; // High cutoff
     short prev_frame_in[2];
-    short prev_frame_out_lpf[2];
-    short prev_frame_out_hpf[2];
+    short prev_frame_out_bsf[2];
     short *input_buffer;
     short *output_buffer;
 } context_t;
 
-typedef struct hpf_t {
+typedef struct bsf_t {
    float a0, a1, a2;
    float b0, b1, b2;
-} hpf_t;
-
-typedef struct lpf_t {
-   float a0, a1, a2;
-   float b0, b1, b2;
-} lpf_t;
+} bsf_t;
 
 int32_t get_bsf_mem_size(void) {
     int32_t mem_size = 0;
@@ -31,40 +25,26 @@ int32_t get_bsf_mem_size(void) {
     return mem_size;
 }
 
-static void generate_coeffs(lpf_t *lpf, hpf_t *hpf, float freq_l, float freq_h) {
+static void generate_coeffs(bsf_t *bsf, float freq_l, float freq_h) {
     int32_t fs = 44100; // TODO: get this dynamically
 
-    /* LPF */
+    /* BSF */
     // wc
-    float wc = 2 * M_PI * freq_l;
+    float wh = 2 * M_PI * freq_h / fs;
+    float wl = 2 * M_PI * freq_l / fs;
     // Calculate k
-    float k = wc / tan(M_PI * freq_l/fs);
+    float k = tan((wh - wl) / 2);
+    float cosWc = cos((wh + wl) / 2) / cos((wh - wl) / 2);
 
     // Input coeffs
-    lpf->b0 = pow(wc, 2) / (pow(wc, 2) + pow(k, 2) + (sqrt(2) * wc * k));
-    lpf->b1 = (2 * pow(wc, 2) / (pow(wc, 2) + pow(k, 2) + (sqrt(2) * wc * k)));
-    lpf->b2 = pow(wc, 2) / (pow(wc, 2) + pow(k, 2) + (sqrt(2) * wc * k));
+    bsf->b0 = 1 / (1 + k);
+    bsf->b1 = -2 * cosWc / (1 + k);
+    bsf->b2 = 1 / (1 + k);
 
     // Output coeffs
-    lpf->a0 = 1;
-    lpf->a1 = ((2 * pow(wc, 2)) - (2 * pow(k, 2))) / (pow(wc, 2) + pow(k, 2) + (sqrt(2) * wc * k));
-    lpf->a2 = (pow(wc, 2) + pow(k, 2) - (sqrt(2) * wc * k)) / (pow(wc, 2) + pow(k, 2) + (sqrt(2) * wc * k));
-
-    /* HPF */
-    // wc
-    wc = 2 * M_PI * freq_h;
-    // Calculate k
-    k = wc / tan(M_PI * freq_h/fs);
-
-    // Input coeffs
-    hpf->b0 = pow(k, 2) / (pow(wc, 2) + pow(k, 2) + (sqrt(2) * wc * k));
-    hpf->b1 = (-2 * pow(k, 2) / (pow(wc, 2) + pow(k, 2) + (sqrt(2) * wc * k)));
-    hpf->b2 = pow(k, 2) / (pow(wc, 2) + pow(k, 2) + (sqrt(2) * wc * k));
-
-    // Output coeffs
-    hpf->a0 = 1;
-    hpf->a1 = ((2 * pow(wc, 2)) - (2 * pow(k, 2))) / (pow(wc, 2) + pow(k, 2) + (sqrt(2) * wc * k));
-    hpf->a2 = (pow(wc, 2) + pow(k, 2) - (sqrt(2) * wc * k)) / (pow(wc, 2) + pow(k, 2) + (sqrt(2) * wc * k));
+    bsf->a0 = 1;
+    bsf->a1 = 2 * cosWc / (1 + k);
+    bsf->a2 = (1 - k) / (1 + k);
 }
 
 void init_bsf(void* context) {
@@ -96,22 +76,16 @@ int32_t process_bsf(void* context, int16_t *input_buffer, int16_t *output_buffer
     context_t *ct = (context_t*) context;
 
     float in[FRAME_LEN];
-    float out_lpf[FRAME_LEN];
-    float out_hpf[FRAME_LEN];
-    short short_out_hpf[FRAME_LEN];
-    short short_out_lpf[FRAME_LEN];
+    float out_bsf[FRAME_LEN];
+    short short_out_bsf[FRAME_LEN];
 
     // Create an HPF instance
-    hpf_t *hpf = (hpf_t *) malloc(sizeof(hpf_t));
-    memset(hpf, 0, sizeof(hpf_t));
-
-    // Create an LPF instance
-    lpf_t *lpf = (lpf_t *) malloc(sizeof(lpf_t));
-    memset(lpf, 0, sizeof(lpf_t));
+    bsf_t *bsf = (bsf_t *) malloc(sizeof(bsf_t));
+    memset(bsf, 0, sizeof(bsf_t));
 
     if (ct->freq_l != 0 || ct->freq_h != 0) {
         // Generate the coeffs for the filter based on freq
-        generate_coeffs(lpf, hpf, ct->freq_l, ct->freq_h);
+        generate_coeffs(bsf, ct->freq_l, ct->freq_h);
 
         // Use the prev state values for the processing correctly
         in[0] = (float)((input_buffer[0]) * ONEOVERSHORTMAX);
@@ -120,33 +94,24 @@ int32_t process_bsf(void* context, int16_t *input_buffer, int16_t *output_buffer
             // If first frame, initialize to first three input values.
             output_buffer[0] = input_buffer[0];
             output_buffer[1] = input_buffer[1];
-            out_lpf[0] = (float)((output_buffer[0]) * ONEOVERSHORTMAX);
-            out_lpf[1] = (float)((output_buffer[1]) * ONEOVERSHORTMAX);
-            out_hpf[0] = out_lpf[0];
-            out_hpf[1] = out_lpf[1];
+            out_bsf[0] = (float)((output_buffer[0]) * ONEOVERSHORTMAX);
+            out_bsf[1] = (float)((output_buffer[1]) * ONEOVERSHORTMAX);
         } else {
             // If not, set the first output value to the last processed value of the previous frame.
-            float f_prev_frame_out1_lpf = (float)(ct->prev_frame_out_lpf[0] * ONEOVERSHORTMAX);
-            float f_prev_frame_out2_lpf = (float)(ct->prev_frame_out_lpf[1] * ONEOVERSHORTMAX);
-            float f_prev_frame_out1_hpf = (float)(ct->prev_frame_out_hpf[0] * ONEOVERSHORTMAX);
-            float f_prev_frame_out2_hpf = (float)(ct->prev_frame_out_hpf[1] * ONEOVERSHORTMAX);
+            float f_prev_frame_out1_bsf = (float)(ct->prev_frame_out_bsf[0] * ONEOVERSHORTMAX);
+            float f_prev_frame_out2_bsf = (float)(ct->prev_frame_out_bsf[1] * ONEOVERSHORTMAX);
             float f_prev_frame_in1 = (float)(ct->prev_frame_in[0] * ONEOVERSHORTMAX);
             float f_prev_frame_in2 = (float)(ct->prev_frame_in[1] * ONEOVERSHORTMAX);
 
-            out_lpf[0] = (lpf->b0 * in[0]) + (lpf->b1 * f_prev_frame_in1) + (lpf->b2 * f_prev_frame_in2)
-                        - (lpf->a1 * f_prev_frame_out1_lpf) - (lpf->a2 * f_prev_frame_out2_lpf);
-            out_lpf[1] = (lpf->b0 * in[1]) + (lpf->b1 * in[0]) + (lpf->b2 * f_prev_frame_in1)
-                        - (lpf->a1 * out_lpf[0]) - (lpf->a2 * f_prev_frame_out1_lpf);
+            out_bsf[0] = (bsf->b0 * in[0]) + (bsf->b1 * f_prev_frame_in1) + (bsf->b2 * f_prev_frame_in2)
+                        - (bsf->a1 * f_prev_frame_out1_bsf) - (bsf->a2 * f_prev_frame_out2_bsf);
+            out_bsf[1] = (bsf->b0 * in[1]) + (bsf->b1 * in[0]) + (bsf->b2 * f_prev_frame_in1)
+                        - (bsf->a1 * out_bsf[0]) - (bsf->a2 * f_prev_frame_out1_bsf);
 
-            out_hpf[0] = (hpf->b0 * in[0]) + (hpf->b1 * f_prev_frame_in1) + (hpf->b2 * f_prev_frame_in2)
-                        - (hpf->a1 * f_prev_frame_out1_hpf) - (hpf->a2 * f_prev_frame_out2_hpf);
-            out_hpf[1] = (hpf->b0 * in[1]) + (hpf->b1 * in[0]) + (hpf->b2 * f_prev_frame_in1)
-                        - (hpf->a1 * out_hpf[0]) - (hpf->a2 * f_prev_frame_out1_hpf);
-
-            output_buffer[0] = ((short)(out_hpf[0] * 32767))
-                                + ((short)(out_lpf[0] * 32767));
-            output_buffer[1] = ((short)(out_hpf[1] * 32767))
-                                + ((short)(out_lpf[1] * 32767));
+            output_buffer[0] = ((short)(out_bsf[0] * 32767))
+                                + ((short)(out_bsf[0] * 32767));
+            output_buffer[1] = ((short)(out_bsf[1] * 32767))
+                                + ((short)(out_bsf[1] * 32767));
         }
 
         for (unsigned int i = 2; i < FRAME_LEN; ++i)
@@ -156,16 +121,11 @@ int32_t process_bsf(void* context, int16_t *input_buffer, int16_t *output_buffer
 
             // Run the HPF filter over the frame length
             // Use previous value to update the new value
-            out_lpf[i] = (lpf->b0 * in[i]) + (lpf->b1 * in[i-1]) + (lpf->b2 * in[i-2])
-                        - (lpf->a1 * out_lpf[i-1]) - (lpf->a2 * out_lpf[i-2]);
-            short_out_lpf[i] = (short)(out_lpf[i] * 32767);
+            out_bsf[i] = (bsf->b0 * in[i]) + (bsf->b1 * in[i-1]) + (bsf->b2 * in[i-2])
+                        - (bsf->a1 * out_bsf[i-1]) - (bsf->a2 * out_bsf[i-2]);
+            short_out_bsf[i] = (short)(out_bsf[i] * 32767);
 
-            out_hpf[i] = (hpf->b0 * in[i]) + (hpf->b1 * in[i-1]) + (hpf->b2 * in[i-2])
-                        - (hpf->a1 * out_hpf[i-1]) - (hpf->a2 * out_hpf[i-2]);
-            short_out_hpf[i] = (short)(out_hpf[i] * 32767);
-
-            // Sum the two outputs to give the required band stop
-            output_buffer[i] = short_out_hpf[i] + short_out_lpf[i];
+            output_buffer[i] = short_out_bsf[i];
         }
     } else {
         for (unsigned int i = 0; i < FRAME_LEN; ++i) {
@@ -176,14 +136,11 @@ int32_t process_bsf(void* context, int16_t *input_buffer, int16_t *output_buffer
     // Store the previous frame in-out value stats in context
     ct->prev_frame_in[0] = input_buffer[FRAME_LEN - 1];
     ct->prev_frame_in[1] = input_buffer[FRAME_LEN - 2];
-    ct->prev_frame_out_lpf[0] = short_out_lpf[FRAME_LEN - 1];
-    ct->prev_frame_out_lpf[1] = short_out_lpf[FRAME_LEN - 2];
-    ct->prev_frame_out_hpf[0] = short_out_hpf[FRAME_LEN - 1];
-    ct->prev_frame_out_hpf[1] = short_out_hpf[FRAME_LEN - 2];
+    ct->prev_frame_out_bsf[0] = short_out_bsf[FRAME_LEN - 1];
+    ct->prev_frame_out_bsf[1] = short_out_bsf[FRAME_LEN - 2];
 
     // Free the instance
-    free(lpf);
-    free(hpf);
+    free(bsf);
 }
 
 int32_t set_bsf_param(void* context, float value1, float value2) {
