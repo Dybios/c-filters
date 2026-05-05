@@ -27,6 +27,7 @@ int main(int argc, char** argv) {
     float freq_l, freq_h, Q;
     FILE* input = fopen(argv[2], "rb");
     FILE* input2, *output;
+
     if (filter_type != 5) {
         output = fopen(argv[3], "wb");
 
@@ -79,12 +80,12 @@ int main(int argc, char** argv) {
     int32_t get_hpf_memory_size = get_hpf_mem_size();
     int32_t get_bpf_memory_size = get_bpf_mem_size();
     int32_t get_bsf_memory_size = get_bsf_mem_size();
-    int32_t get_kalman_memory_size = get_kalman_mem_size();
+//    int32_t get_kalman_memory_size = get_kalman_mem_size();
     void *lpf_context = (void*) malloc(get_lpf_memory_size);
     void *hpf_context = (void*) malloc(get_hpf_memory_size);
     void *bpf_context = (void*) malloc(get_bpf_memory_size);
     void *bsf_context = (void*) malloc(get_bsf_memory_size);
-    void *kalman_context = (void*) malloc(get_kalman_memory_size);
+//    void *kalman_context = (void*) malloc(get_kalman_memory_size);
 
     // Process filter based on the input filter type
     switch (filter_type) {
@@ -165,6 +166,7 @@ int main(int argc, char** argv) {
             frame_count++;
         }
         break;
+#if 0
     case 5:
         printf("Init kalman param\n");
         init_kalman(kalman_context);
@@ -186,6 +188,7 @@ int main(int argc, char** argv) {
             frame_count++;
         }
         break;
+#endif
     default:
         printf("Invalid filter type. Please input values between 1 to 4 only.\n");
         break;
